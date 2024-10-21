@@ -1,0 +1,135 @@
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <LoRa.h>
+#include <ArduinoJson.h>
+
+// Wi-Fi credentials
+const char* ssid = "Your_SSID";
+const char* password = "Your_Password";
+
+// LoRa module pin configuration
+#define LORA_SS 18
+#define LORA_RST 14
+#define LORA_DIO0 26
+
+// IoT Platform URL (e.g., ThingsBoard, ThingSpeak API endpoint)
+const String serverName = "http://your-iot-platform-url/api";  // Replace with actual API endpoint
+
+// Function to connect to Wi-Fi
+void connectToWiFi() {
+  Serial.print("Connecting to Wi-Fi...");
+  WiFi.begin(ssid, password);
+  
+  // Wait until Wi-Fi is connected
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  
+  Serial.println("\nConnected to Wi-Fi");
+}
+
+// Function to send sensor data to IoT platform
+void sendToIoTPlatform(float temperature, float humidity, float pHValue, int tdsValue, int turbidityValue) {
+  if (WiFi.status() == WL_CONNECTED) {
+    HTTPClient http;
+    
+    // Specify the API endpoint
+    http.begin(serverName);
+
+    // JSON data to send to the platform
+    String jsonPayload = "{\"temperature\":" + String(temperature) + ",";
+    jsonPayload += "\"humidity\":" + String(humidity) + ",";
+    jsonPayload += "\"pH\":" + String(pHValue) + ",";
+    jsonPayload += "\"TDS\":" + String(tdsValue) + ",";
+    jsonPayload += "\"turbidity\":" + String(turbidityValue) + "}";
+
+    // Set HTTP headers
+    http.addHeader("Content-Type", "application/json");
+
+    // Send the request
+    int httpResponseCode = http.POST(jsonPayload);
+    
+    // Check the HTTP response
+    if (httpResponseCode > 0) {
+      String response = http.getString();
+      Serial.println("Response from server:");
+      Serial.println(response);
+    } else {
+      Serial.print("Error in sending POST request: ");
+      Serial.println(httpResponseCode);
+    }
+    
+    http.end();  // End the connection
+  } else {
+    Serial.println("Wi-Fi not connected. Unable to send data.");
+  }
+}
+
+// Function to parse LoRa data
+void parseLoRaData(String receivedData) {
+  StaticJsonDocument<200> doc;
+  
+  DeserializationError error = deserializeJson(doc, receivedData);  // Parse JSON data
+  if (error) {
+    Serial.print("Error parsing JSON data: ");
+    Serial.println(error.c_str());
+    return;
+  }
+
+  // Extract sensor values
+  float temperature = doc["temperature"];
+  float humidity = doc["humidity"];
+  float pHValue = doc["pH"];
+  int tdsValue = doc["TDS"];
+  int turbidityValue = doc["turbidity"];
+  
+  // Print values for debugging
+  Serial.println("Received Sensor Data:");
+  Serial.print("Temperature: ");
+  Serial.println(temperature);
+  Serial.print("Humidity: ");
+  Serial.println(humidity);
+  Serial.print("pH: ");
+  Serial.println(pHValue);
+  Serial.print("TDS: ");
+  Serial.println(tdsValue);
+  Serial.print("Turbidity: ");
+  Serial.println(turbidityValue);
+  
+  // Send data to IoT platform
+  sendToIoTPlatform(temperature, humidity, pHValue, tdsValue, turbidityValue);
+}
+
+void setup() {
+  Serial.begin(115200);
+  
+  // Connect to Wi-Fi
+  connectToWiFi();
+
+  // Initialize LoRa
+  LoRa.setPins(LORA_SS, LORA_RST, LORA_DIO0);
+  if (!LoRa.begin(915E6)) {  // Set LoRa frequency (915 MHz, adjust as needed)
+    Serial.println("LoRa init failed. Check connections.");
+    while (true);  // Stop execution if LoRa fails to initialize
+  }
+  Serial.println("LoRa Initialized.");
+}
+
+void loop() {
+  // Check if LoRa packet has been received
+  int packetSize = LoRa.parsePacket();
+  if (packetSize) {
+    String receivedData = "";
+
+    // Read LoRa packet
+    while (LoRa.available()) {
+      receivedData += (char)LoRa.read();
+    }
+
+    // Print received data
+    Serial.print("Received LoRa
+
+
+
+Lora reciver
